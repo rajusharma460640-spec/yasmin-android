@@ -81,10 +81,10 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text("Yasmin", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Text("AI assistant (main insaan nahi hoon)", style = MaterialTheme.typography.bodySmall)
+                Text("AI assistant (main insaan nahi hoon)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
             }
             IconButton(onClick = { showSettings = true }) {
-                Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground)
             }
         }
 
@@ -160,7 +160,7 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
                 },
                 enabled = input.isNotBlank() && !vm.isThinking
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (input.isNotBlank() && !vm.isThinking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f))
             }
         }
     }
