@@ -8,6 +8,7 @@ class ChatRepository(context: Context) {
 
     private val appContext = context.applicationContext
     private val db = HistoryDb(appContext)
+    private val memoryDb = MemoryDb(appContext)
     private val llm = LlmClient()
     val settings = SecureSettings(appContext)
 
@@ -17,6 +18,14 @@ class ChatRepository(context: Context) {
 
     fun clearHistory() = db.clear()
 
+    fun loadMemories(): List<SavedMemory> = memoryDb.getAll()
+
+    fun saveMemory(content: String): Long = memoryDb.add(content)
+
+    fun deleteMemory(id: Long): Int = memoryDb.delete(id)
+
+    fun clearMemories(): Int = memoryDb.clearAll()
+
     /** Sends recent history to the configured AI provider and returns Yasmin's reply. */
     suspend fun askLlm(history: List<ChatMessage>): String = withContext(Dispatchers.IO) {
         val key = settings.apiKey
@@ -24,6 +33,17 @@ class ChatRepository(context: Context) {
             throw LlmException("API key set nahi hai. Upar Settings icon se key daalo.")
         }
         val msgs = mutableListOf("system" to SYSTEM_PROMPT)
+        val memories = memoryDb.getAll()
+        if (memories.isNotEmpty()) {
+            val memoryText = memories.asReversed()
+                .joinToString("\n") { "- ${it.content}" }
+            msgs.add(
+                "system" to (
+                    "User-approved saved memories, use only when relevant:\n" +
+                    memoryText
+                )
+            )
+        }
         history.takeLast(MAX_HISTORY).forEach { msgs.add(it.role to it.content) }
         llm.chat(settings.baseUrl, key, settings.model, msgs)
     }
