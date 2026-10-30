@@ -73,6 +73,7 @@ import com.yasmin.ai.data.ChatMessage
 fun ChatScreen(vm: ChatViewModel = viewModel()) {
     var input by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
+    var showMemories by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         vm.onMicPermissionResult(granted)
@@ -118,6 +119,7 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
             IconButton(onClick = { vm.updateVoiceOutput(!vm.voiceOutput) }) {
                 Text(if (vm.voiceOutput) "\uD83D\uDD0A" else "\uD83D\uDD07", fontSize = 20.sp)
             }
+            TextButton(onClick = { showMemories = true }) { Text("Memory") }
             IconButton(onClick = { showSettings = true }) {
                 Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground)
             }
@@ -286,6 +288,9 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
     if (showSettings) {
         SettingsDialog(vm = vm, onDismiss = { showSettings = false })
     }
+    if (showMemories) {
+        MemoryDialog(vm = vm, onDismiss = { showMemories = false })
+    }
 }
 
 @Composable
@@ -399,6 +404,105 @@ private fun VoicePicker(label: String, lang: String, vm: ChatViewModel) {
                 TextButton(onClick = { vm.previewVoice(lang, selected) }) { Text("Test") }
             }
         }
+    }
+}
+
+@Composable
+private fun MemoryDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
+    var newMemory by remember { mutableStateOf("") }
+    var confirmClear by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Yasmin ki Memories") },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Yahan save ki gayi baatein Yasmin future chats mein yaad rakh sakti hai.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                OutlinedTextField(
+                    value = newMemory,
+                    onValueChange = { if (it.length <= 500) newMemory = it },
+                    label = { Text("Nayi memory likho") },
+                    placeholder = { Text("Jaise: mujhe simple Hindi pasand hai") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+
+                Text(
+                    "${newMemory.length}/500",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                TextButton(
+                    onClick = {
+                        vm.addMemory(newMemory)
+                        newMemory = ""
+                    },
+                    enabled = newMemory.isNotBlank()
+                ) {
+                    Text("Memory Save Karo")
+                }
+
+                Text("Saved memories", style = MaterialTheme.typography.titleSmall)
+
+                if (vm.savedMemories.isEmpty()) {
+                    Text(
+                        "Abhi koi memory save nahi hai.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    vm.savedMemories.forEach { memory ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                memory.content,
+                                Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            TextButton(onClick = { vm.removeMemory(memory.id) }) {
+                                Text("Delete", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+
+                    TextButton(onClick = { confirmClear = true }) {
+                        Text("Saari memories delete karo", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Saari memories delete karein?") },
+            text = { Text("Yasmin ki saved memories is phone se delete ho jayengi.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.removeAllMemories()
+                    confirmClear = false
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
