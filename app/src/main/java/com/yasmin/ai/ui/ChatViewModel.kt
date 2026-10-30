@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.yasmin.ai.data.ChatMessage
 import com.yasmin.ai.data.ChatRepository
+import com.yasmin.ai.data.SavedMemory
 import com.yasmin.ai.data.LlmException
 import com.yasmin.ai.voice.Speaker
 import com.yasmin.ai.voice.SpeechInput
@@ -22,6 +23,8 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     val speaker = Speaker(app)
 
     val messages = mutableStateListOf<ChatMessage>()
+
+    val savedMemories = mutableStateListOf<SavedMemory>()
 
     var isThinking by mutableStateOf(false)
         private set
@@ -73,6 +76,10 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val saved = withContext(Dispatchers.IO) { repo.loadHistory() }
             messages.addAll(saved)
+
+            val memories = withContext(Dispatchers.IO) { repo.loadMemories() }
+            savedMemories.clear()
+            savedMemories.addAll(memories)
         }
     }
 
@@ -209,6 +216,60 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.clearHistory() }
             messages.clear()
+        }
+    }
+
+    fun refreshMemories() {
+        viewModelScope.launch {
+            val memories = withContext(Dispatchers.IO) {
+                repo.loadMemories()
+            }
+            savedMemories.clear()
+            savedMemories.addAll(memories)
+        }
+    }
+
+    fun addMemory(content: String) {
+        val value = content.trim()
+        if (value.isEmpty()) {
+            error = "Memory khaali nahi ho sakti."
+            return
+        }
+        if (value.length > 500) {
+            error = "Memory 500 characters se chhoti honi chahiye."
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { repo.saveMemory(value) }
+                refreshMemories()
+                error = null
+            } catch (e: Exception) {
+                error = "Memory save nahi hui: ${e.message ?: "unknown error"}"
+            }
+        }
+    }
+
+    fun removeMemory(id: Long) {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { repo.deleteMemory(id) }
+                refreshMemories()
+            } catch (e: Exception) {
+                error = "Memory delete nahi hui: ${e.message ?: "unknown error"}"
+            }
+        }
+    }
+
+    fun removeAllMemories() {
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { repo.clearMemories() }
+                savedMemories.clear()
+            } catch (e: Exception) {
+                error = "Memories clear nahi hui: ${e.message ?: "unknown error"}"
+            }
         }
     }
 
