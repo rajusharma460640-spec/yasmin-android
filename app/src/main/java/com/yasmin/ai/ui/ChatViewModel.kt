@@ -11,6 +11,7 @@ import com.yasmin.ai.data.ChatMessage
 import com.yasmin.ai.data.ChatRepository
 import com.yasmin.ai.data.LlmException
 import com.yasmin.ai.voice.Speaker
+import com.yasmin.ai.voice.SpeechInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,8 +26,14 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     var isThinking by mutableStateOf(false)
         private set
 
-    /** Reserved for Stage G (push-to-talk). Always false in Stage F. */
-    var isListening by mutableStateOf(false)
+    val speech = SpeechInput(app)
+
+    val isListening: Boolean get() = speech.isListening
+
+    var micLang by mutableStateOf(repo.settings.micLang)
+        private set
+
+    var micDenied by mutableStateOf(false)
         private set
 
     var error by mutableStateOf<String?>(null)
@@ -56,7 +63,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     val avatarState: AvatarState
         get() = when {
-            isListening -> AvatarState.Listening
+            speech.isListening -> AvatarState.Listening
             isThinking -> AvatarState.Thinking
             speaker.isSpeaking -> AvatarState.Speaking
             else -> AvatarState.Idle
@@ -98,6 +105,40 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     fun stopSpeaking() {
         speaker.stop()
+    }
+
+    /** Push-to-talk: first tap starts listening, second tap stops and sends what was heard. */
+    fun toggleMic() {
+        if (speech.isListening) speech.stopListening() else startListening()
+    }
+
+    fun startListening() {
+        if (isThinking || speech.isListening) return
+        speaker.stop() // don't let Yasmin's own voice be picked up as input
+        error = null
+        voiceNotice = null
+        val tag = if (micLang == "en") "en-IN" else "hi-IN"
+        val problem = speech.start(
+            tag,
+            onFinal = { heard -> send(heard) },
+            onProblem = { msg -> voiceNotice = msg }
+        )
+        if (problem != null) voiceNotice = problem
+    }
+
+    fun cancelListening() {
+        speech.cancel()
+    }
+
+    fun onMicPermissionResult(granted: Boolean) {
+        micDenied = !granted
+        if (granted) startListening()
+    }
+
+    fun updateMicLang(lang: String) {
+        if (speech.isListening) return
+        micLang = lang
+        repo.settings.micLang = lang
     }
 
     fun updateVoiceOutput(on: Boolean) {
@@ -172,6 +213,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        speech.cancel()
         speaker.shutdown()
         super.onCleared()
     }

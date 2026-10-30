@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Internet for the AI provider. Microphone permission is added in Stage G, when voice input is built. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Android 11+ package visibility: lets the app find the phone's text-to-speech engine. -->
+    <!-- Push-to-talk only. Requested at runtime, the first time you tap the mic button.
+         There is no background service, so the mic is never used while the app is closed. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Android 11+ package visibility: find the phone's TTS and speech-recognition services. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 

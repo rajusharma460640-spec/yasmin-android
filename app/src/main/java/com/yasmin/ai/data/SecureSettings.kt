@@ -90,6 +90,13 @@ class SecureSettings(context: Context) {
             plain.edit().putString("voice_en", value).apply()
         }
 
+    /** Language used when listening: "hi" (Hindi, also handles Hinglish) or "en". */
+    var micLang: String
+        get() = plain.getString("mic_lang", "hi") ?: "hi"
+        set(value) {
+            plain.edit().putString("mic_lang", value).apply()
+        }
+
     companion object {
         const val DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
         const val DEFAULT_MODEL = "openai/gpt-oss-120b"

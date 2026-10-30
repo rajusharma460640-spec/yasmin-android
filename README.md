@@ -1,4 +1,4 @@
-# Yasmin AI - Android (Stage F)
+# Yasmin AI - Android (Stage G: push-to-talk)
 
 Native Kotlin + Jetpack Compose chat app with an animated original avatar, speaking waveform
 and Android text-to-speech.
@@ -19,7 +19,9 @@ Push to `main` -> Actions tab -> `yasmin-debug-apk` artifact. Uninstall the old 
 - Voice output uses the phone's TTS engine. Voices marked "online" may send text to that engine's servers; offline voices do not.
 - History stays in app-private storage; backups are disabled. API key is stored encrypted, never in the APK.
 - For an app shared with other people use a backend proxy that holds the provider key instead of a user-pasted key.
-- Only the INTERNET permission is used. No microphone access exists yet.
+- Permissions: INTERNET, and RECORD_AUDIO (asked only when you first tap the mic button).
+- Push-to-talk only: the mic is open only after you tap it, and closes on result, error, second tap, or when the app leaves the screen. There is no background service. Android shows its own mic indicator while it is open.
+- Speech recognition is done by the phone's speech service (usually Google); on many phones the audio goes online.
 
 ## Checklist
 Written, not yet compiled or run by the author (verify on device):
@@ -30,11 +32,14 @@ Written, not yet compiled or run by the author (verify on device):
 - [x] Message explaining when a voice is missing
 - [x] Tap avatar to stop speaking; mute button in header
 
-Drawn but NOT wired yet:
-- [ ] Listening animation (needs Stage G push-to-talk)
+Stage G (written, not yet compiled or run by the author):
+- [x] Push-to-talk mic button, runtime permission, partial text, auto-send of recognised text
+- [x] Listening animation on the avatar while the mic is open
+- [x] Hindi / English mic language toggle (HI / EN chip). Android cannot auto-detect the spoken language.
+- [x] Mic stops when the app goes to background; denied-permission banner with App settings button
 
 Not implemented:
-- [ ] Mic / speech recognition, wake word (Stage G)
+- [ ] "Hey Yasmin" wake word (investigated, NOT implemented)
 - [ ] Approved memories screen, phone functions with confirmation
 - [ ] Guaranteed female voice (Android does not expose voice gender)
 - [ ] True audio-level waveform (Android TTS gives no amplitude)

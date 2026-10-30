@@ -59,13 +59,33 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.yasmin.ai.data.ChatMessage
 
 @Composable
 fun ChatScreen(vm: ChatViewModel = viewModel()) {
     var input by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
-    var showMicHint by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        vm.onMicPermissionResult(granted)
+    }
+    fun onMicClick() {
+        if (vm.isListening) {
+            vm.toggleMic()
+            return
+        }
+        val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) vm.startListening() else micLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
     val listState = rememberLazyListState()
     val itemCount = vm.messages.size + if (vm.isThinking) 1 else 0
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -177,15 +197,39 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
             )
         }
 
-        if (showMicHint) {
+        if (vm.isListening) {
             Text(
-                "Voice input abhi nahi bana hai. Ye Stage G mein aayega.",
+                if (vm.speech.partial.isEmpty()) "Bolo, main sun rahi hoon..." else vm.speech.partial,
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+
+        if (vm.micDenied) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Mic permission nahi mili, isliye voice input band hai.",
+                    Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                TextButton(onClick = {
+                    context.startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null)
+                        )
+                    )
+                }) { Text("App settings") }
+            }
         }
 
         val canSend = input.isNotBlank() && !vm.isThinking
@@ -195,9 +239,25 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { showMicHint = true }) {
-                Text("\uD83C\uDFA4", fontSize = 22.sp)
+            val listening = vm.isListening
+            IconButton(
+                onClick = { onMicClick() },
+                modifier = Modifier.background(
+                    if (listening) MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)
+                    else androidx.compose.ui.graphics.Color.Transparent,
+                    CircleShape
+                )
+            ) {
+                Text(if (listening) "\u23F9\uFE0F" else "\uD83C\uDFA4", fontSize = 22.sp)
             }
+            Text(
+                if (vm.micLang == "hi") "HI" else "EN",
+                Modifier
+                    .clickable { vm.updateMicLang(if (vm.micLang == "hi") "en" else "hi") }
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.labelLarge
+            )
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
@@ -360,7 +420,8 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
             ) {
                 Text(
                     "Privacy: aapke messages $host ko bheje jaate hain jawab ke liye. " +
-                        "History sirf is phone mein save hoti hai.",
+                        "History sirf is phone mein save hoti hai. " +
+                        "Mic se bola hua audio phone ki speech service (aam taur par Google) process karti hai; kai phones par ye online hota hai.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 OutlinedTextField(

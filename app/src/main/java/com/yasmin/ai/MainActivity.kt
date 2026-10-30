@@ -6,10 +6,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import com.yasmin.ai.ui.ChatScreen
+import com.yasmin.ai.ui.ChatViewModel
 import com.yasmin.ai.ui.YasminTheme
 
 class MainActivity : ComponentActivity() {
+
+    // Same instance that ChatScreen's viewModel() receives (both use this activity as owner).
+    private val chatVm: ChatViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -18,8 +24,14 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             YasminTheme {
-                ChatScreen()
+                ChatScreen(chatVm)
             }
         }
+    }
+
+    override fun onStop() {
+        // Never keep the microphone open once the app is not on screen.
+        chatVm.cancelListening()
+        super.onStop()
     }
 }
