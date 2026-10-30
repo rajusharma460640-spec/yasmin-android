@@ -1,0 +1,45 @@
+package com.yasmin.ai.data
+
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+class ChatRepository(context: Context) {
+
+    private val appContext = context.applicationContext
+    private val db = HistoryDb(appContext)
+    private val llm = LlmClient()
+    val settings = SecureSettings(appContext)
+
+    fun loadHistory(): List<ChatMessage> = db.all()
+
+    fun saveMessage(role: String, content: String): ChatMessage = db.insert(role, content)
+
+    fun clearHistory() = db.clear()
+
+    /** Sends recent history to the configured AI provider and returns Yasmin's reply. */
+    suspend fun askLlm(history: List<ChatMessage>): String = withContext(Dispatchers.IO) {
+        val key = settings.apiKey
+        if (key.isBlank()) {
+            throw LlmException("API key set nahi hai. Upar Settings icon se key daalo.")
+        }
+        val msgs = mutableListOf("system" to SYSTEM_PROMPT)
+        history.takeLast(MAX_HISTORY).forEach { msgs.add(it.role to it.content) }
+        llm.chat(settings.baseUrl, key, settings.model, msgs)
+    }
+
+    companion object {
+        const val MAX_HISTORY = 20
+
+        const val SYSTEM_PROMPT =
+            "You are Yasmin, a caring, playful, friendly AI assistant. " +
+                "You are an AI and never claim to be a human. " +
+                "You understand Hindi typed in Roman script. " +
+                "If the user writes Hindi or Hinglish, reply in natural Hinglish (Roman script); " +
+                "if they write English, reply in English. " +
+                "Keep replies short and conversational unless asked for detail. " +
+                "Help with everyday tasks, studying, and general questions. " +
+                "You cannot set reminders or control the phone in this app yet; say so honestly if asked. " +
+                "Respect privacy and personal boundaries, and never ask for passwords or sensitive personal data."
+    }
+}
