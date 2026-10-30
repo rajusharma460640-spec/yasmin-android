@@ -100,23 +100,23 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         speaker.stop()
     }
 
-    fun setVoiceOutput(on: Boolean) {
+    fun updateVoiceOutput(on: Boolean) {
         voiceOutput = on
         repo.settings.voiceOutput = on
         if (!on) speaker.stop()
     }
 
-    fun setLangMode(mode: String) {
+    fun updateLangMode(mode: String) {
         langMode = mode
         repo.settings.langMode = mode
     }
 
-    fun setSpeechRate(rate: Float) {
+    fun updateSpeechRate(rate: Float) {
         speechRate = rate
         repo.settings.speechRate = rate
     }
 
-    fun setVolume(v: Float) {
+    fun updateVolume(v: Float) {
         volume = v
         repo.settings.volume = v
     }

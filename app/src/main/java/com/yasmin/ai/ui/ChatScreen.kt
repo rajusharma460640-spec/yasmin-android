@@ -95,7 +95,7 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
                 Text("Yasmin", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                 Text("AI assistant (main insaan nahi hoon)", style = MaterialTheme.typography.bodySmall, color = dim)
             }
-            IconButton(onClick = { vm.setVoiceOutput(!vm.voiceOutput) }) {
+            IconButton(onClick = { vm.updateVoiceOutput(!vm.voiceOutput) }) {
                 Text(if (vm.voiceOutput) "\uD83D\uDD0A" else "\uD83D\uDD07", fontSize = 20.sp)
             }
             IconButton(onClick = { showSettings = true }) {
@@ -386,7 +386,7 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                 Text("Voice (turant lagu hota hai)", style = MaterialTheme.typography.titleSmall)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Voice output", Modifier.weight(1f))
-                    Switch(checked = vm.voiceOutput, onCheckedChange = { vm.setVoiceOutput(it) })
+                    Switch(checked = vm.voiceOutput, onCheckedChange = { vm.updateVoiceOutput(it) })
                 }
                 Text("Bhasha", style = MaterialTheme.typography.bodySmall)
                 listOf("auto" to "Auto (jawab ki bhasha ke hisaab se)", "hi" to "Hindi", "en" to "English")
@@ -394,23 +394,23 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { vm.setLangMode(key) },
+                                .clickable { vm.updateLangMode(key) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(selected = vm.langMode == key, onClick = { vm.setLangMode(key) })
+                            RadioButton(selected = vm.langMode == key, onClick = { vm.updateLangMode(key) })
                             Text(label)
                         }
                     }
                 Text("Speed: " + "%.1f".format(vm.speechRate) + "x", style = MaterialTheme.typography.bodySmall)
                 Slider(
                     value = vm.speechRate,
-                    onValueChange = { vm.setSpeechRate(it) },
+                    onValueChange = { vm.updateSpeechRate(it) },
                     valueRange = 0.5f..1.5f
                 )
                 Text("Volume: " + (vm.volume * 100).toInt() + "%", style = MaterialTheme.typography.bodySmall)
                 Slider(
                     value = vm.volume,
-                    onValueChange = { vm.setVolume(it) },
+                    onValueChange = { vm.updateVolume(it) },
                     valueRange = 0.2f..1f
                 )
                 VoicePicker("Hindi voice", "hi", vm)
