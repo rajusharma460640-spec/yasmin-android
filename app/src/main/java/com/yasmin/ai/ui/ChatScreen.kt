@@ -6,13 +6,17 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,17 +28,21 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,7 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,6 +68,10 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
     var showMicHint by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val itemCount = vm.messages.size + if (vm.isThinking) 1 else 0
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val avatarState = vm.avatarState
+    val speaking = avatarState == AvatarState.Speaking
+    val dim = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
 
     LaunchedEffect(itemCount) {
         if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
@@ -76,15 +88,45 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 8.dp, top = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
                 Text("Yasmin", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                Text("AI assistant (main insaan nahi hoon)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
+                Text("AI assistant (main insaan nahi hoon)", style = MaterialTheme.typography.bodySmall, color = dim)
+            }
+            IconButton(onClick = { vm.setVoiceOutput(!vm.voiceOutput) }) {
+                Text(if (vm.voiceOutput) "\uD83D\uDD0A" else "\uD83D\uDD07", fontSize = 20.sp)
             }
             IconButton(onClick = { showSettings = true }) {
                 Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground)
+            }
+        }
+
+        // Avatar (tap while speaking to stop)
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            AvatarView(
+                state = avatarState,
+                avatarSize = if (imeVisible) 56.dp else 120.dp,
+                modifier = Modifier.clickable(enabled = speaking) { vm.stopSpeaking() }
+            )
+            if (!imeVisible) {
+                val label = when (avatarState) {
+                    AvatarState.Thinking -> "Yasmin soch rahi hai..."
+                    AvatarState.Speaking -> "Yasmin bol rahi hai (roknay ke liye avatar dabao)"
+                    AvatarState.Listening -> "Sun rahi hoon..."
+                    AvatarState.Idle -> ""
+                }
+                Text(label, style = MaterialTheme.typography.bodySmall, color = dim, modifier = Modifier.height(18.dp))
+            }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(if (imeVisible && !speaking) 0.dp else 32.dp)
+                    .padding(horizontal = 56.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (speaking) WaveformView()
             }
         }
 
@@ -124,6 +166,17 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
             )
         }
 
+        vm.voiceNotice?.let {
+            Text(
+                it,
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
         if (showMicHint) {
             Text(
                 "Voice input abhi nahi bana hai. Ye Stage G mein aayega.",
@@ -135,6 +188,7 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
             )
         }
 
+        val canSend = input.isNotBlank() && !vm.isThinking
         Row(
             Modifier
                 .fillMaxWidth()
@@ -150,17 +204,21 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Yasmin se baat karo...") },
                 maxLines = 4,
-                shape = RoundedCornerShape(24.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+                shape = RoundedCornerShape(24.dp)
             )
             IconButton(
                 onClick = {
                     vm.send(input)
                     input = ""
                 },
-                enabled = input.isNotBlank() && !vm.isThinking
+                enabled = canSend
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (input.isNotBlank() && !vm.isThinking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f))
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Send",
+                    tint = if (canSend) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.38f)
+                )
             }
         }
     }
@@ -233,6 +291,58 @@ private fun TypingIndicator() {
 }
 
 @Composable
+private fun VoicePicker(label: String, lang: String, vm: ChatViewModel) {
+    val ready = vm.speaker.ready
+    val voices = remember(ready) { vm.voicesFor(lang) }
+    var open by remember { mutableStateOf(false) }
+    val selected = if (lang == "hi") vm.voiceHi else vm.voiceEn
+
+    Column {
+        Text(label, style = MaterialTheme.typography.bodySmall)
+        if (voices.isEmpty()) {
+            Text(
+                if (!ready) {
+                    "Voice engine load ho raha hai..."
+                } else {
+                    "Koi voice nahi mili. Phone Settings > Text-to-speech mein is bhasha ka voice data download karo."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    TextButton(onClick = { open = true }) {
+                        Text(if (selected.isEmpty()) "Default voice" else selected)
+                    }
+                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Default voice") },
+                            onClick = {
+                                vm.setVoice(lang, "")
+                                open = false
+                            }
+                        )
+                        voices.forEach { v ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(v.name + if (v.isNetworkConnectionRequired) " (online)" else "")
+                                },
+                                onClick = {
+                                    vm.setVoice(lang, v.name)
+                                    open = false
+                                }
+                            )
+                        }
+                    }
+                }
+                TextButton(onClick = { vm.previewVoice(lang, selected) }) { Text("Test") }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
     var baseUrl by remember { mutableStateOf(vm.baseUrl) }
     var model by remember { mutableStateOf(vm.model) }
@@ -272,6 +382,46 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                     label = { Text("Model") },
                     singleLine = true
                 )
+
+                Text("Voice (turant lagu hota hai)", style = MaterialTheme.typography.titleSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Voice output", Modifier.weight(1f))
+                    Switch(checked = vm.voiceOutput, onCheckedChange = { vm.setVoiceOutput(it) })
+                }
+                Text("Bhasha", style = MaterialTheme.typography.bodySmall)
+                listOf("auto" to "Auto (jawab ki bhasha ke hisaab se)", "hi" to "Hindi", "en" to "English")
+                    .forEach { (key, label) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { vm.setLangMode(key) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = vm.langMode == key, onClick = { vm.setLangMode(key) })
+                            Text(label)
+                        }
+                    }
+                Text("Speed: " + "%.1f".format(vm.speechRate) + "x", style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    value = vm.speechRate,
+                    onValueChange = { vm.setSpeechRate(it) },
+                    valueRange = 0.5f..1.5f
+                )
+                Text("Volume: " + (vm.volume * 100).toInt() + "%", style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    value = vm.volume,
+                    onValueChange = { vm.setVolume(it) },
+                    valueRange = 0.2f..1f
+                )
+                VoicePicker("Hindi voice", "hi", vm)
+                VoicePicker("English voice", "en", vm)
+                Text(
+                    "Android voices ka gender app ko nahi pata chalta. Test dabake suno aur jo female lage wo chuno. " +
+                        "\"online\" voices ka text phone ke bahar speech engine ko ja sakta hai. " +
+                        "Phone ke volume buttons bhi kaam karte hain.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+
                 TextButton(onClick = { confirmClear = true }) {
                     Text("Conversation history delete karo", color = MaterialTheme.colorScheme.error)
                 }
@@ -284,7 +434,7 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
             }) { Text("Save") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Close") }
         }
     )
 

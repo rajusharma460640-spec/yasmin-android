@@ -1,47 +1,46 @@
-# Yasmin AI - Android (Stage E)
+# Yasmin AI - Android (Stage F)
 
-Native Kotlin + Jetpack Compose chat app. Dark theme, chat bubbles, typing indicator,
-local SQLite history, settings dialog.
+Native Kotlin + Jetpack Compose chat app with an animated original avatar, speaking waveform
+and Android text-to-speech.
 
 ## Structure
-- `app/src/main/java/com/yasmin/ai/MainActivity.kt`
-- `data/` : `HistoryDb` (SQLite), `SecureSettings` (encrypted API key), `LlmClient` (HTTP), `ChatRepository`
-- `ui/`   : `ChatViewModel`, `ChatScreen`, `Theme`
-- `.github/workflows/build.yml` : cloud APK build
+- `MainActivity.kt`
+- `data/` : `HistoryDb`, `SecureSettings`, `LlmClient`, `ChatRepository`
+- `voice/Speaker.kt` : Android TextToSpeech wrapper, Hindi/English detection, voice list
+- `ui/` : `ChatViewModel`, `ChatScreen`, `AvatarView` (+ clock), `WaveformView`, `Theme`
+- `.github/workflows/build.yml`
 
-## Build (GitHub Actions)
-Push to `main` -> repo's **Actions** tab -> latest run -> **Artifacts** -> `yasmin-debug-apk`.
-Unzip it, install `app-debug.apk` (allow "unknown sources").
-
-## First run
-Settings (gear icon) -> paste your API key (Groq: https://console.groq.com). Defaults: Groq + `openai/gpt-oss-120b`.
+## Build
+Push to `main` -> Actions tab -> `yasmin-debug-apk` artifact. Uninstall the old app first
+(each CI build is signed with a new debug key).
 
 ## Privacy and security
-- Messages and recent history (last 20) are sent to the provider in Base URL (Groq by default). Settings shows the host.
-- Chat history stays only in the app's private storage. Backups are disabled.
-- The API key is typed by you at runtime and stored encrypted on the device. It is NOT in the source or APK.
-- This is fine for a personal app. For an app distributed to other people, never ship a key:
-  run a small backend proxy that holds the provider key, authenticates users, rate-limits,
-  and forwards `/chat/completions`; then point Base URL to that proxy.
-- Only the INTERNET permission is requested. No microphone access exists yet.
+- Messages and the last 20 chat turns go to the provider in Base URL (Groq by default).
+- Voice output uses the phone's TTS engine. Voices marked "online" may send text to that engine's servers; offline voices do not.
+- History stays in app-private storage; backups are disabled. API key is stored encrypted, never in the APK.
+- For an app shared with other people use a backend proxy that holds the provider key instead of a user-pasted key.
+- Only the INTERNET permission is used. No microphone access exists yet.
 
 ## Checklist
-Implemented (code written; NOT yet compiled or run by the author):
-- [x] Dark chat UI, user/AI bubbles, input, send button
-- [x] Typing indicator while waiting for AI
-- [x] ViewModel + Repository architecture
-- [x] Local conversation history, delete from Settings
-- [x] Encrypted API key storage, configurable provider/model
-- [x] Hinglish-aware persona prompt
+Written, not yet compiled or run by the author (verify on device):
+- [x] Animated avatar: idle (breathing, blinking), thinking, speaking
+- [x] Speaking waveform (simulated, see below), stops when speech ends
+- [x] Thinking indicator (typing dots + avatar arcs)
+- [x] Android TTS, auto/Hindi/English mode, voice pick per language, speed, volume, on/off
+- [x] Message explaining when a voice is missing
+- [x] Tap avatar to stop speaking; mute button in header
 
-Not implemented yet:
-- [ ] Mic / speech recognition (Stage G)
-- [ ] Text-to-speech, language and voice selection, speech rate (Stage C/F equivalents on Android)
-- [ ] Approved memories screen
-- [ ] Animated avatar and waveform (Stage F)
-- [ ] Wake word (Stage G, investigation only)
-- [ ] Phone functions with confirmation
+Drawn but NOT wired yet:
+- [ ] Listening animation (needs Stage G push-to-talk)
+
+Not implemented:
+- [ ] Mic / speech recognition, wake word (Stage G)
+- [ ] Approved memories screen, phone functions with confirmation
+- [ ] Guaranteed female voice (Android does not expose voice gender)
+- [ ] True audio-level waveform (Android TTS gives no amplitude)
+- [ ] Hinglish in Roman script read by the Hindi voice: needs on-device testing
 
 ## Troubleshooting
-- Build fails: open the failed run in Actions, copy the red error lines and send them.
-- HTTP 401: key wrong. 404: model/Base URL wrong. 403: network or key blocked. 429: rate limit.
+- No sound: media volume, voice output switch (speaker icon), Settings > Test.
+- "Hindi voice available nahi": phone Settings > Text-to-speech > Google > Install voice data > Hindi.
+- Build error: copy the red lines from the failed Actions run.
