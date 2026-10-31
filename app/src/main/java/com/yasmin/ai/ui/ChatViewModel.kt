@@ -325,7 +325,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** The screen must make sure microphone permission is granted before turning this on. */
-    fun setWakeEnabled(on: Boolean) {
+    fun changeWakeEnabled(on: Boolean) {
         wakeEnabled = on
         wakePrefs.edit().putBoolean("enabled", on).apply()
         if (on) {
@@ -357,7 +357,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteWakeModel() {
-        setWakeEnabled(false)
+        changeWakeEnabled(false)
         WakeModel.remove(getApplication<Application>())
         wakeModelReady = false
     }
