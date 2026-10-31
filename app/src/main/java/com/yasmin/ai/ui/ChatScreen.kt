@@ -514,6 +514,47 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
     var confirmClear by remember { mutableStateOf(false) }
     val host = runCatching { java.net.URI(baseUrl).host }.getOrNull() ?: "AI provider"
 
+    // ---- "Hey Yasmin" permissions and consent ----
+    val ctx = LocalContext.current
+    var wakeNotice by remember { mutableStateOf<String?>(null) }
+    var confirmDownload by remember { mutableStateOf(false) }
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            wakeNotice = null
+            vm.changeWakeEnabled(true)
+        } else {
+            wakeNotice = "Notification permission ke bina Hey Yasmin ON nahi hoga, kyunki mic ON hone ka notification dikhna zaroori hai."
+        }
+    }
+    fun enableWake() {
+        val needsNotif = android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        if (needsNotif) {
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            wakeNotice = null
+            vm.changeWakeEnabled(true)
+        }
+    }
+    val wakeMicLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) enableWake() else wakeNotice = "Mic permission ke bina Hey Yasmin ON nahi hoga."
+    }
+    fun onWakeSwitch(on: Boolean) {
+        if (!on) {
+            wakeNotice = null
+            vm.changeWakeEnabled(false)
+            return
+        }
+        if (!vm.wakeModelReady) {
+            confirmDownload = true
+            return
+        }
+        val micOk = ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (micOk) enableWake() else wakeMicLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Settings") },
@@ -587,6 +628,38 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall
                 )
 
+                Text("\"Hey Yasmin\" (optional, test mode)", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Ye tabhi mic kholta hai jab app screen par khula ho aur ye switch ON ho. " +
+                        "Aawaz phone par hi process hoti hai (offline), save nahi hoti aur kahin bheji nahi jaati. " +
+                        "Mic ON hone par notification dikhta hai jisme Stop button hai. " +
+                        "Kuch phones par ye kam accurate ho sakta hai.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Hey Yasmin", Modifier.weight(1f))
+                    Switch(
+                        checked = vm.wakeEnabled,
+                        onCheckedChange = { onWakeSwitch(it) },
+                        enabled = !vm.wakeDownloading
+                    )
+                }
+                if (vm.wakeDownloading) {
+                    Text("Voice model download ho raha hai: ${vm.wakeProgress}%", style = MaterialTheme.typography.bodySmall)
+                } else if (!vm.wakeModelReady) {
+                    Text("Pehle voice model download karna hoga (switch dabao).", style = MaterialTheme.typography.bodySmall)
+                } else if (vm.wakeEnabled) {
+                    Text("Status: ${vm.wakeStatus}", style = MaterialTheme.typography.bodySmall)
+                }
+                wakeNotice?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (vm.wakeModelReady && !vm.wakeDownloading) {
+                    TextButton(onClick = { vm.deleteWakeModel() }) {
+                        Text("Voice model delete karo", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+
                 TextButton(onClick = { confirmClear = true }) {
                     Text("Conversation history delete karo", color = MaterialTheme.colorScheme.error)
                 }
@@ -603,6 +676,27 @@ private fun SettingsDialog(vm: ChatViewModel, onDismiss: () -> Unit) {
         }
     )
 
+    if (confirmDownload) {
+        AlertDialog(
+            onDismissRequest = { confirmDownload = false },
+            title = { Text("Voice model download karein?") },
+            text = {
+                Text(
+                    "\"Hey Yasmin\" ke liye lagbhag 40 MB ka offline model alphacephei.com se download hoga. " +
+                        "Sirf ye file download hoti hai, aapki baatein kahin nahi jaati. Wi-Fi par karna behtar hai."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDownload = false
+                    vm.downloadWakeModel()
+                }) { Text("Download") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDownload = false }) { Text("Cancel") }
+            }
+        )
+    }
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },

@@ -83,7 +83,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     init {
-        viewModelScope.launch { WakeBus.status.collect { wakeStatus = it } }
+        viewModelScope.launch {
+            WakeBus.status.collect {
+                wakeStatus = it
+                // User tapped Stop in the notification while the app is open: reflect it in the switch.
+                if (it == "Off" && wakeEnabled && appVisible) changeWakeEnabled(false)
+            }
+        }
         viewModelScope.launch {
             // Only react while the app is on screen.
             WakeBus.events.collect { if (appVisible) startListening() }
