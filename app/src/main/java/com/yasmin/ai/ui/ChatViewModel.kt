@@ -145,6 +145,16 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun reloadHistory() {
+        viewModelScope.launch {
+            val saved = withContext(Dispatchers.IO) { repo.loadHistory() }
+            if (saved.size != messages.size) {
+                messages.clear()
+                messages.addAll(saved)
+            }
+        }
+    }
+
     fun stopSpeaking() {
         speaker.stop()
     }

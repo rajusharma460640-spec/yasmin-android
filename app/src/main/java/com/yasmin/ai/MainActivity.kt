@@ -34,6 +34,11 @@ class MainActivity : ComponentActivity() {
         chatVm.onAppVisible(true)
     }
 
+    override fun onResume() {
+        super.onResume()
+        chatVm.reloadHistory()
+    }
+
     override fun onStop() {
         chatVm.onAppVisible(false)
         // Never keep the microphone open once the app is not on screen.

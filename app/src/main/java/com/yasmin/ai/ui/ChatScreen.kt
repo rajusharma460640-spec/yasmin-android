@@ -125,6 +125,8 @@ fun ChatScreen(vm: ChatViewModel = viewModel()) {
             }
         }
 
+        ScreenOffControl()
+
         // Avatar (tap while speaking to stop)
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             AvatarView(
