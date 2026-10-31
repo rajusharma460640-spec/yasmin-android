@@ -29,7 +29,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        chatVm.onAppVisible(true)
+    }
+
     override fun onStop() {
+        chatVm.onAppVisible(false)
         // Never keep the microphone open once the app is not on screen.
         chatVm.cancelListening()
         super.onStop()

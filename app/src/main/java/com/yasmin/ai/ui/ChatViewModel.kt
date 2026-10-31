@@ -13,6 +13,12 @@ import com.yasmin.ai.data.SavedMemory
 import com.yasmin.ai.data.LlmException
 import com.yasmin.ai.voice.Speaker
 import com.yasmin.ai.voice.SpeechInput
+import com.yasmin.ai.wake.WakeBus
+import com.yasmin.ai.wake.WakeModel
+import com.yasmin.ai.wake.WakeWordService
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,6 +66,29 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var voiceEn by mutableStateOf(repo.settings.voiceEn)
         private set
+
+    // ---------- Optional "Hey Yasmin" (OFF by default) ----------
+    private val wakePrefs = app.getSharedPreferences("wake", android.content.Context.MODE_PRIVATE)
+    private var appVisible = false
+
+    var wakeEnabled by mutableStateOf(wakePrefs.getBoolean("enabled", false))
+        private set
+    var wakeModelReady by mutableStateOf(WakeModel.isInstalled(app))
+        private set
+    var wakeDownloading by mutableStateOf(false)
+        private set
+    var wakeProgress by mutableStateOf(0)
+        private set
+    var wakeStatus by mutableStateOf("Off")
+        private set
+
+    init {
+        viewModelScope.launch { WakeBus.status.collect { wakeStatus = it } }
+        viewModelScope.launch {
+            // Only react while the app is on screen.
+            WakeBus.events.collect { if (appVisible) startListening() }
+        }
+    }
 
     val baseUrl: String get() = repo.settings.baseUrl
     val model: String get() = repo.settings.model
@@ -273,7 +302,68 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------- Wake word controls ----------
+
+    /** Called by MainActivity: mic for "Hey Yasmin" is open ONLY while the app is on screen. */
+    fun onAppVisible(visible: Boolean) {
+        appVisible = visible
+        if (visible) {
+            if (wakeEnabled) startWake()
+        } else {
+            WakeWordService.stop(getApplication<Application>())
+        }
+    }
+
+    private fun startWake() {
+        val ctx = getApplication<Application>()
+        when {
+            !wakeModelReady -> wakeStatus = "Voice model not downloaded"
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) !=
+                PackageManager.PERMISSION_GRANTED -> wakeStatus = "Microphone permission missing"
+            else -> WakeWordService.start(ctx)
+        }
+    }
+
+    /** The screen must make sure microphone permission is granted before turning this on. */
+    fun setWakeEnabled(on: Boolean) {
+        wakeEnabled = on
+        wakePrefs.edit().putBoolean("enabled", on).apply()
+        if (on) {
+            if (appVisible) startWake()
+        } else {
+            WakeWordService.stop(getApplication<Application>())
+        }
+    }
+
+    /** The screen must ask the user's consent (about 40 MB download) before calling this. */
+    fun downloadWakeModel() {
+        if (wakeDownloading) return
+        wakeDownloading = true
+        wakeProgress = 0
+        error = null
+        viewModelScope.launch {
+            try {
+                val ctx = getApplication<Application>()
+                withContext(Dispatchers.IO) {
+                    WakeModel.download(ctx) { p -> wakeProgress = p }
+                }
+                wakeModelReady = true
+            } catch (e: Exception) {
+                error = "Voice model download failed: ${e.message ?: "unknown"}"
+            } finally {
+                wakeDownloading = false
+            }
+        }
+    }
+
+    fun deleteWakeModel() {
+        setWakeEnabled(false)
+        WakeModel.remove(getApplication<Application>())
+        wakeModelReady = false
+    }
+
     override fun onCleared() {
+        WakeWordService.stop(getApplication<Application>())
         speech.cancel()
         speaker.shutdown()
         super.onCleared()
