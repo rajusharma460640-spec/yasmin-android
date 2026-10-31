@@ -2,12 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Push-to-talk only. Requested at runtime, the first time you tap the mic button.
-         There is no background service, so the mic is never used while the app is closed. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Android 11+ package visibility: find the phone's TTS and speech-recognition services. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
@@ -32,5 +32,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".wake.WakeWordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 </manifest>
