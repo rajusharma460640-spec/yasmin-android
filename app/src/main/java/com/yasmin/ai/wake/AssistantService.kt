@@ -308,6 +308,18 @@ class AssistantService : Service() {
         }
     }
 
+    /** Reads the screen in front (only because the user just asked) and answers about it. */
+    private suspend fun readScreenAnswer(question: String): String {
+        val svc = com.yasmin.ai.access.YasminAccessibilityService.instance
+            ?: return "Screen reader band hai. Settings mein Accessibility mein Yasmin screen reader ON karo."
+        val r = withContext(Dispatchers.IO) { svc.readScreen() }
+        logLine("Screen read: " + (if (r.ok) r.text.length.toString() + " chars from " + r.packageName else "not allowed"))
+        if (!r.ok) return r.note
+        if (r.text.isBlank()) return "Screen par mujhe padhne layak kuch nahi mila."
+        val answer = repo.answerAboutScreen(question, r.text, r.note)
+        return Regex("\\[\\[.*?\\]\\]").replace(answer, "").trim().ifBlank { "Samajh nahi paayi." }
+    }
+
     private fun answer(heard: String) {
         status("Jawab la rahi hoon...")
         scope.launch {
@@ -319,7 +331,13 @@ class AssistantService : Service() {
                 if (looksLikeCommand(heard)) {
                     val tag = repo.interpretCommand(heard, PhoneActions.appNames(applicationContext))
                     logLine("Command AI: " + tag.take(60))
-                    if (tag.contains("[[")) {
+                    if (tag.contains("[[read_screen")) {
+                        spoken = readScreenAnswer(heard)
+                        withContext(Dispatchers.IO) {
+                            repo.saveMessage("user", heard)
+                            repo.saveMessage("assistant", spoken ?: "")
+                        }
+                    } else if (tag.contains("[[")) {
                         val notes = PhoneActions.process(applicationContext, tag).second
                         if (notes.isNotEmpty()) {
                             val done = notes.joinToString(". ")
