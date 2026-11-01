@@ -115,6 +115,14 @@ fun ScreenOffControl() {
                 color = MaterialTheme.colorScheme.secondary
             )
         }
+        if (AssistantService.trail.isNotEmpty()) {
+            Text(
+                AssistantService.trail.joinToString("\n"),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
+        }
         val shown = if (on && AssistantService.message.isNotEmpty()) AssistantService.message else notice
         if (shown.isNotEmpty()) {
             Text(

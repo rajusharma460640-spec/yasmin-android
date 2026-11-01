@@ -133,6 +133,7 @@ class AssistantService : Service() {
                 }
                 model = m
                 recognizer = Recognizer(m, 16000.0f)
+                logLine("Hindi model installed: " + HindiModel.isInstalled(applicationContext))
                 if (HindiModel.isInstalled(applicationContext)) {
                     try {
                         val hm = withContext(Dispatchers.Default) {
@@ -140,6 +141,7 @@ class AssistantService : Service() {
                         }
                         hiModel = hm
                         hiRecognizer = Recognizer(hm, 16000.0f)
+                        logLine("Hindi model load ho gaya")
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -198,6 +200,7 @@ class AssistantService : Service() {
         } catch (e: Exception) {
             ""
         }
+        if (key == "text" && text.isNotBlank()) logLine("English suna: $text")
         if (text.isNotBlank() && isWake(text)) onWake()
     }
 
@@ -247,7 +250,7 @@ class AssistantService : Service() {
         fun give(t: String) {
             if (done) return
             done = true
-            main.post { stopHindi(); answer(t) }
+            main.post { logLine("Hindi suna: $t"); stopHindi(); answer(t) }
         }
         fun giveUp(msg: String) {
             if (done) return
@@ -282,6 +285,7 @@ class AssistantService : Service() {
     }
 
     private fun listenForQuestion() {
+        logLine(if (hiRecognizer != null) "Hindi mic se sun rahi" else "Hindi model nahi, Google speech try")
         if (hiRecognizer != null && !destroyed) {
             listenHindi()
             return
@@ -365,12 +369,20 @@ class AssistantService : Service() {
         }
     }
 
+    private fun logLine(t: String) {
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+        trail.add(0, "$time $t")
+        while (trail.size > 14) trail.removeAt(trail.size - 1)
+    }
+
     private fun status(text: String) {
+        logLine(text)
         message = text
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification(text))
     }
 
     private fun fail(text: String) {
+        logLine("FAIL: $text")
         message = text
         stopSelf()
     }
@@ -435,6 +447,8 @@ class AssistantService : Service() {
         /** True while the service is running (observable from Compose). */
         var running by mutableStateOf(false)
             private set
+
+        val trail = androidx.compose.runtime.mutableStateListOf<String>()
 
         /** Latest status line, shown in the notification and in the app. */
         var message by mutableStateOf("")
