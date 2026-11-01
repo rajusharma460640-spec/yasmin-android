@@ -17,6 +17,14 @@ object PhoneActions {
         return TAG.replace(reply, "").trim() to notes
     }
 
+    fun appNames(ctx: Context): List<String> {
+        val pm = ctx.packageManager
+        val q = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return pm.queryIntentActivities(q, 0)
+            .map { it.loadLabel(pm).toString() }
+            .distinct().sorted().take(120)
+    }
+
     private fun run(ctx: Context, action: String, arg: String): String = try {
         when (action) {
             "open_app" -> openApp(ctx, arg)

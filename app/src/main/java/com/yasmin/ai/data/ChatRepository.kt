@@ -48,6 +48,16 @@ class ChatRepository(context: Context) {
         llm.chat(settings.baseUrl, key, settings.model, msgs)
     }
 
+    /** Small extra AI call: turns mis-heard Hindi speech into ONE phone-action tag, or NONE. */
+    suspend fun interpretCommand(text: String, appNames: List<String>): String = withContext(Dispatchers.IO) {
+        val key = settings.apiKey
+        if (key.isBlank()) return@withContext "NONE"
+        val sys = "You convert speech-to-text output (Hindi/Hinglish, often mis-heard; for example 'और साथ खुले' can mean 'open WhatsApp', 'यू तो' can mean 'YouTube') into ONE phone command. " +
+            "Reply with exactly one of: [[open_app:Name]] (Name MUST be copied from this list: " + appNames.joinToString(", ") + "), [[torch:on]], [[torch:off]], [[alarm:HH:MM]] (24-hour), [[timer:SECONDS]], or NONE. " +
+            "Reply NONE for questions, chit-chat, or anything unclear. Output nothing else."
+        llm.chat(settings.baseUrl, key, settings.model, mutableListOf("system" to sys, "user" to text)).trim()
+    }
+
     companion object {
         const val MAX_HISTORY = 20
 

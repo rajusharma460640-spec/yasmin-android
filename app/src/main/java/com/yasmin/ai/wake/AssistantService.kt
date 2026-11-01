@@ -25,6 +25,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.yasmin.ai.MainActivity
 import com.yasmin.ai.data.ChatRepository
+import com.yasmin.ai.phone.PhoneActions
 import com.yasmin.ai.voice.Speaker
 import com.yasmin.ai.voice.SpeechInput
 import kotlinx.coroutines.CancellationException
@@ -177,7 +178,7 @@ class AssistantService : Service() {
                 override fun onTimeout() {}
             })
             vosk = service
-            status(if (hiRecognizer != null) "\"Hey Yasmin\" ka intezaar... (Hindi mic ON, v3)" else "\"Hey Yasmin\" ka intezaar... (Hindi model NAHI mila)")
+            status(if (hiRecognizer != null) "\"Hey Yasmin\" ka intezaar... (Hindi mic ON, v4)" else "\"Hey Yasmin\" ka intezaar... (Hindi model NAHI mila)")
         } catch (e: Exception) {
             fail("Mic start nahi hua: ${e.message ?: "error"}")
         }
@@ -311,14 +312,40 @@ class AssistantService : Service() {
         status("Jawab la rahi hoon...")
         scope.launch {
             try {
-                val reply = withContext(Dispatchers.IO) {
-                    repo.saveMessage("user", heard)
-                    val r = repo.askLlm(repo.loadHistory())
-                    repo.saveMessage("assistant", r)
-                    r
+                if (!android.provider.Settings.canDrawOverlays(applicationContext)) {
+                    logLine("WARNING: Display over other apps OFF")
                 }
+                var spoken: String? = null
+                if (looksLikeCommand(heard)) {
+                    val tag = repo.interpretCommand(heard, PhoneActions.appNames(applicationContext))
+                    logLine("Command AI: " + tag.take(60))
+                    if (tag.contains("[[")) {
+                        val notes = PhoneActions.process(applicationContext, tag).second
+                        if (notes.isNotEmpty()) {
+                            val done = notes.joinToString(". ")
+                            logLine("Action: $done")
+                            withContext(Dispatchers.IO) {
+                                repo.saveMessage("user", heard)
+                                repo.saveMessage("assistant", done)
+                            }
+                            spoken = done
+                        }
+                    }
+                }
+                if (spoken == null) {
+                    val raw = withContext(Dispatchers.IO) {
+                        repo.saveMessage("user", heard)
+                        repo.askLlm(repo.loadHistory())
+                    }
+                    val (clean, notes) = PhoneActions.process(applicationContext, raw)
+                    if (notes.isNotEmpty()) logLine("Action: " + notes.joinToString(" | "))
+                    val reply = clean.ifBlank { notes.joinToString(". ").ifBlank { raw } }
+                    withContext(Dispatchers.IO) { repo.saveMessage("assistant", reply) }
+                    spoken = reply
+                }
+                val out = spoken ?: ""
                 status("Bol rahi hoon...")
-                speakAndWait(reply)
+                speakAndWait(out)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -328,6 +355,11 @@ class AssistantService : Service() {
                 resumeWake()
             }
         }
+    }
+
+    private fun looksLikeCommand(t: String): Boolean {
+        val s = t.lowercase()
+        return listOf("खोल", "खुल", "kholo", "khol", "open", "चालू", "बंद", "बन्द", "band", "torch", "टॉर्च", "टार्च", "अलार्म", "alarm", "टाइमर", "timer", "जगा", "लगा", "चला", "start").any { s.contains(it) }
     }
 
     private suspend fun speakAndWait(text: String) {
