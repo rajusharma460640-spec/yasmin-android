@@ -49,5 +49,17 @@
             android:name=".wake.AssistantService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+            <service
+            android:name=".access.YasminAccessibilityService"
+            android:exported="true"
+            android:label="Yasmin screen reader"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/yasmin_accessibility" />
+        </service>
     </application>
 </manifest>
