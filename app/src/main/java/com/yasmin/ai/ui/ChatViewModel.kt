@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.yasmin.ai.data.ChatMessage
 import com.yasmin.ai.data.ChatRepository
 import com.yasmin.ai.data.SavedMemory
+import com.yasmin.ai.phone.PhoneActions
 import com.yasmin.ai.data.LlmException
 import com.yasmin.ai.voice.Speaker
 import com.yasmin.ai.voice.SpeechInput
@@ -129,7 +130,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             messages.add(userMsg)
             isThinking = true
             try {
-                val reply = repo.askLlm(messages.toList())
+                val raw = repo.askLlm(messages.toList())
+                val (text, notes) = PhoneActions.process(getApplication<Application>(), raw)
+                val reply = if (notes.isEmpty()) text.ifBlank { raw } else (text + "\n⚙️ " + notes.joinToString(" • ")).trim()
                 val aiMsg = withContext(Dispatchers.IO) { repo.saveMessage("assistant", reply) }
                 messages.add(aiMsg)
                 if (voiceOutput) {
