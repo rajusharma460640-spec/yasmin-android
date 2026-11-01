@@ -53,7 +53,7 @@ class ChatRepository(context: Context) {
         val key = settings.apiKey
         if (key.isBlank()) return@withContext "NONE"
         val sys = "You convert speech-to-text output (Hindi/Hinglish, often mis-heard; for example 'और साथ खुले' can mean 'open WhatsApp', 'यू तो' can mean 'YouTube') into ONE phone command. " +
-            "Reply with exactly one of: [[open_app:Name]] (Name MUST be copied from this list: " + appNames.joinToString(", ") + "), [[torch:on]], [[torch:off]], [[alarm:HH:MM]] (24-hour), [[timer:SECONDS]], [[read_screen:now]] (when the user asks to read or check the phone screen, who is calling, or what is written on the screen), or NONE. " +
+            "Reply with exactly one of: [[open_app:Name]] (Name MUST be copied from this list: " + appNames.joinToString(", ") + "), [[torch:on]], [[torch:off]], [[alarm:HH:MM]] (24-hour), [[timer:SECONDS]], [[volume:up]] / [[volume:down]] / [[volume:mute]] / [[volume:max]] / [[volume:PERCENT]], [[media:play_pause]] / [[media:next]] / [[media:previous]], [[search:QUERY]], [[maps:PLACE]], [[navigate:PLACE]], [[settings:PAGE]] (PAGE is wifi, bluetooth, display, sound, battery, apps, location, airplane or main), [[sms:MESSAGE_TEXT]] (opens an SMS draft), [[dial:PHONE_NUMBER]] (opens the dialer with digits only), [[read_screen:now]] (when the user asks to read or check the phone screen, who is calling, or what is written on the screen), or NONE. " +
             "Reply NONE for general questions, chit-chat, or anything unclear (but questions about the phone screen or an incoming call are [[read_screen:now]]). Output nothing else."
         llm.chat(settings.baseUrl, key, settings.model, mutableListOf("system" to sys, "user" to text)).trim()
     }
@@ -83,7 +83,7 @@ class ChatRepository(context: Context) {
                 "if they write English, reply in English. " +
                 "Keep replies short and conversational unless asked for detail. " +
                 "Help with everyday tasks, studying, and general questions. " +
-                "You can control the phone by adding action tags at the END of your reply, one per line: [[open_app:AppName]], [[torch:on]], [[torch:off]], [[alarm:HH:MM]] (24-hour), [[timer:SECONDS]]. Use a tag only when the user clearly asks for that action, never any other tag. You cannot send SMS, make calls, delete files or do payments; say so honestly. " +
+                "You can control the phone by adding action tags at the END of your reply, one per line: [[open_app:AppName]], [[torch:on]], [[torch:off]], [[alarm:HH:MM]] (24-hour), [[timer:SECONDS]], [[volume:up|down|mute|max|PERCENT]], [[media:play_pause|next|previous]], [[search:QUERY]], [[maps:PLACE]], [[navigate:PLACE]], [[settings:PAGE]] (wifi, bluetooth, display, sound, battery, apps, location, airplane, main), [[sms:MESSAGE_TEXT]] (opens an SMS draft), [[dial:PHONE_NUMBER]] (opens the dialer). Use a tag only when the user clearly asks for that action, never any other tag. You cannot send SMS or place calls by yourself (you can only open the SMS draft or the dialer for the user), delete files or do payments; say so honestly. " +
                 "If asked about working in the background, say the user can turn on the Screen-off Hey Yasmin switch to talk to you with the app closed. " +
                 "Respect privacy and personal boundaries, and never ask for passwords or sensitive personal data."
     }
