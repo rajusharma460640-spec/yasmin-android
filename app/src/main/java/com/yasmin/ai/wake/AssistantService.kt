@@ -377,7 +377,7 @@ class AssistantService : Service() {
 
     private fun looksLikeCommand(t: String): Boolean {
         val s = t.lowercase()
-        return listOf("खोल", "खुल", "kholo", "khol", "open", "चालू", "बंद", "बन्द", "band", "torch", "टॉर्च", "टार्च", "अलार्म", "alarm", "टाइमर", "timer", "जगा", "लगा", "चला", "start").any { s.contains(it) }
+        return listOf("खोल", "खुल", "kholo", "khol", "open", "चालू", "बंद", "बन्द", "band", "torch", "टॉर्च", "टार्च", "अलार्म", "alarm", "टाइमर", "timer", "जगा", "लगा", "चला", "start", "screen", "स्क्रीन", "स्क्रिन", "padh", "पढ", "likha", "लिखा", "call", "कॉल", "phone kar", "फोन कर").any { s.contains(it) }
     }
 
     private suspend fun speakAndWait(text: String) {
