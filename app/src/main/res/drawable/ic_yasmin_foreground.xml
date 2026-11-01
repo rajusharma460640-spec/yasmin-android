@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ring -->
+    <path
+        android:pathData="M20,54 a34,34 0 1,0 68,0 a34,34 0 1,0 -68,0"
+        android:strokeColor="#B8C77DFF"
+        android:strokeWidth="1.8" />
+    <!-- teal accent on the ring -->
+    <path
+        android:pathData="M54,20 A34,34 0 0 1 75.85,27.95"
+        android:strokeColor="#5EEAD4"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round" />
+
+    <!-- hair -->
+    <path
+        android:fillColor="#C77DFF"
+        android:pathData="M34.2,52.2 C27,27 81,27 73.8,52.2 C82.08,66.6 73.8,79.2 67.68,80.64 C70.2,68.4 68.4,63 64.8,59.4 L43.2,59.4 C39.6,63 37.8,68.4 40.32,80.64 C34.2,79.2 25.92,66.6 34.2,52.2 Z" />
+    <!-- face -->
+    <path
+        android:fillColor="#1B1D2B"
+        android:strokeColor="#C77DFF"
+        android:strokeWidth="0.9"
+        android:pathData="M41.76,54 a12.24,14.4 0 1,0 24.48,0 a12.24,14.4 0 1,0 -24.48,0" />
+    <!-- fringe -->
+    <path
+        android:fillColor="#E9C9FF"
+        android:pathData="M41.04,52.2 C43.2,37.8 57.6,37.44 66.96,46.8 C57.6,43.92 48.6,46.08 41.04,52.2 Z" />
+    <!-- eyes -->
+    <path
+        android:fillColor="#5EEAD4"
+        android:pathData="M45.96,53.28 a3,2.2 0 1,0 6,0 a3,2.2 0 1,0 -6,0" />
+    <path
+        android:fillColor="#5EEAD4"
+        android:pathData="M56.04,53.28 a3,2.2 0 1,0 6,0 a3,2.2 0 1,0 -6,0" />
+    <!-- smile -->
+    <path
+        android:pathData="M50.8,61 Q54,64.2 57.2,61"
+        android:strokeColor="#E9C9FF"
+        android:strokeWidth="1"
+        android:strokeLineCap="round" />
+</vector>
