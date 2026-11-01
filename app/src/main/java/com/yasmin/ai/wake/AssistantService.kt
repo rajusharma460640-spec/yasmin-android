@@ -175,7 +175,7 @@ class AssistantService : Service() {
                 override fun onTimeout() {}
             })
             vosk = service
-            status("\"Hey Yasmin\" ka intezaar...")
+            status(if (hiRecognizer != null) "\"Hey Yasmin\" ka intezaar... (Hindi mic ON)" else "\"Hey Yasmin\" ka intezaar... (Hindi model NAHI mila)")
         } catch (e: Exception) {
             fail("Mic start nahi hua: ${e.message ?: "error"}")
         }
