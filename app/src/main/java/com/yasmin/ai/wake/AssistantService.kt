@@ -58,6 +58,9 @@ class AssistantService : Service() {
     private var model: Model? = null
     private var recognizer: Recognizer? = null
     private var vosk: SpeechService? = null
+    private var hiModel: Model? = null
+    private var hiRecognizer: Recognizer? = null
+    private var hiVosk: SpeechService? = null
     private lateinit var repo: ChatRepository
     private lateinit var speaker: Speaker
     private lateinit var speech: SpeechInput
@@ -130,6 +133,20 @@ class AssistantService : Service() {
                 }
                 model = m
                 recognizer = Recognizer(m, 16000.0f)
+                if (HindiModel.isInstalled(applicationContext)) {
+                    try {
+                        val hm = withContext(Dispatchers.Default) {
+                            Model(HindiModel.dir(applicationContext).absolutePath)
+                        }
+                        hiModel = hm
+                        hiRecognizer = Recognizer(hm, 16000.0f)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        hiModel = null
+                        hiRecognizer = null
+                    }
+                }
                 startWake()
             } catch (e: CancellationException) {
                 throw e
@@ -207,7 +224,68 @@ class AssistantService : Service() {
         main.postDelayed({ listenForQuestion() }, 350)
     }
 
+    private fun stopHindi() {
+        try {
+            hiVosk?.cancel()
+            hiVosk?.shutdown()
+        } catch (e: Exception) {
+            // ignore
+        }
+        hiVosk = null
+    }
+
+    /** Background-safe question listening: offline Hindi Vosk inside this service. */
+    private fun listenHindi() {
+        val rec = hiRecognizer ?: return
+        var done = false
+        var last = ""
+        fun textOf(json: String?, key: String): String = try {
+            JSONObject(json ?: "").optString(key, "").trim()
+        } catch (e: Exception) {
+            ""
+        }
+        fun give(t: String) {
+            if (done) return
+            done = true
+            main.post { stopHindi(); answer(t) }
+        }
+        fun giveUp(msg: String) {
+            if (done) return
+            done = true
+            main.post { stopHindi(); status(msg); resumeWake() }
+        }
+        try {
+            rec.reset()
+            val svc = SpeechService(rec, 16000.0f)
+            hiVosk = svc
+            svc.startListening(object : RecognitionListener {
+                override fun onPartialResult(h: String?) {
+                    val p = textOf(h, "partial")
+                    if (p.isNotBlank()) last = p
+                }
+                override fun onResult(h: String?) {
+                    val t = textOf(h, "text")
+                    if (t.isNotBlank()) give(t)
+                }
+                override fun onFinalResult(h: String?) {
+                    val t = textOf(h, "text")
+                    if (t.isNotBlank()) give(t)
+                }
+                override fun onError(e: Exception?) = giveUp("Mic error: ${e?.message ?: "unknown"}")
+                override fun onTimeout() {
+                    if (last.isNotBlank()) give(last) else giveUp("Kuch sunai nahi diya")
+                }
+            }, 15000)
+        } catch (e: Exception) {
+            giveUp("Hindi mic start nahi hua: ${e.message ?: "error"}")
+        }
+    }
+
     private fun listenForQuestion() {
+        if (hiRecognizer != null && !destroyed) {
+            listenHindi()
+            return
+        }
         if (destroyed) return
         val tag = if (repo.settings.micLang == "en") "en-IN" else "hi-IN"
         val problem = speech.start(
@@ -334,6 +412,13 @@ class AssistantService : Service() {
         }
         try {
             model?.close()
+        } catch (e: Exception) {
+            // ignore
+        }
+        stopHindi()
+        try {
+            hiRecognizer?.close()
+            hiModel?.close()
         } catch (e: Exception) {
             // ignore
         }

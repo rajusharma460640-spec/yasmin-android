@@ -27,6 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.yasmin.ai.wake.AssistantService
 import com.yasmin.ai.wake.WakeModel
+import com.yasmin.ai.wake.HindiModel
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** One-line switch: "Screen-off Hey Yasmin" ON/OFF, with consent and permissions. */
 @Composable
@@ -35,6 +40,9 @@ fun ScreenOffControl() {
     val on = AssistantService.running
     var showConsent by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    var hiReady by remember { mutableStateOf(HindiModel.isInstalled(context)) }
+    var hiProgress by remember { mutableStateOf(-1) }
 
     fun granted(p: String) =
         ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
@@ -81,6 +89,32 @@ fun ScreenOffControl() {
             color = if (on) MaterialTheme.colorScheme.secondary
             else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
         )
+        if (!hiReady) {
+            Text(
+                if (hiProgress >= 0) "Hindi model download ho raha hai: $hiProgress%"
+                else "Hindi voice model download karo (42 MB) - background me Hindi sunne ke liye",
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = hiProgress < 0) {
+                        hiProgress = 0
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    HindiModel.download(context) { p -> hiProgress = p }
+                                }
+                                hiReady = true
+                                notice = "Hindi model ready. Screen-off switch OFF karke dobara ON karo."
+                            } catch (e: Exception) {
+                                notice = "Hindi model download fail: ${e.message ?: "error"}"
+                            }
+                            hiProgress = -1
+                        }
+                    }
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
         val shown = if (on && AssistantService.message.isNotEmpty()) AssistantService.message else notice
         if (shown.isNotEmpty()) {
             Text(
