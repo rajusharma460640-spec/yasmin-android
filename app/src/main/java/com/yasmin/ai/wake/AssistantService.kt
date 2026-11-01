@@ -177,7 +177,7 @@ class AssistantService : Service() {
                 override fun onTimeout() {}
             })
             vosk = service
-            status(if (hiRecognizer != null) "\"Hey Yasmin\" ka intezaar... (Hindi mic ON)" else "\"Hey Yasmin\" ka intezaar... (Hindi model NAHI mila)")
+            status(if (hiRecognizer != null) "\"Hey Yasmin\" ka intezaar... (Hindi mic ON, v3)" else "\"Hey Yasmin\" ka intezaar... (Hindi model NAHI mila)")
         } catch (e: Exception) {
             fail("Mic start nahi hua: ${e.message ?: "error"}")
         }
@@ -210,6 +210,7 @@ class AssistantService : Service() {
      */
     private fun isWake(raw: String): Boolean {
         val t = raw.lowercase().trim()
+        if (WAKE_WORDS.any { t.contains(it) }) return true
         val name = "(yasmin|yasmine|jasmine|jasmin|yas min|yes min|yes mean)"
         return Regex("\\b(hey|hay|hi|hello|okay|ok)\\s+$name\\b").containsMatchIn(t) ||
             Regex("^(a\\s+|eh\\s+)?$name\$").matches(t)
@@ -443,7 +444,8 @@ class AssistantService : Service() {
         const val ACTION_STOP = "com.yasmin.ai.ASSISTANT_STOP"
         private const val CHANNEL_ID = "yasmin_assistant"
         private const val NOTIF_ID = 4711
-        private const val WAKE_GRAMMAR = "[\"hey yasmin\", \"hey yasmine\", \"hey jasmine\", \"[unk]\"]"
+        private val WAKE_WORDS = listOf("hello", "yasmin", "yasmine", "jasmine", "jasmin", "yes mean", "us mean", "his men", "yes men")
+        private const val WAKE_GRAMMAR = "[\"hey yasmin\", \"hey yasmine\", \"hey jasmine\", \"hey jasmin\", \"hello\", \"hello yasmin\", \"hi yasmin\", \"hey yes mean\", \"hey us mean\", \"hey his men\", \"[unk]\"]"
 
         /** True while the service is running (observable from Compose). */
         var running by mutableStateOf(false)
