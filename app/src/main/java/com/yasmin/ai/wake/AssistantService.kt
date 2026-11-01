@@ -132,7 +132,7 @@ class AssistantService : Service() {
                     return@launch
                 }
                 model = m
-                recognizer = Recognizer(m, 16000.0f)
+                recognizer = Recognizer(m, 16000.0f, WAKE_GRAMMAR)
                 logLine("Hindi model installed: " + HindiModel.isInstalled(applicationContext))
                 if (HindiModel.isInstalled(applicationContext)) {
                     try {
@@ -443,6 +443,7 @@ class AssistantService : Service() {
         const val ACTION_STOP = "com.yasmin.ai.ASSISTANT_STOP"
         private const val CHANNEL_ID = "yasmin_assistant"
         private const val NOTIF_ID = 4711
+        private const val WAKE_GRAMMAR = "[\"hey yasmin\", \"hey yasmine\", \"hey jasmine\", \"[unk]\"]"
 
         /** True while the service is running (observable from Compose). */
         var running by mutableStateOf(false)
