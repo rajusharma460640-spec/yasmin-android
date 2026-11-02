@@ -286,7 +286,123 @@ class AssistantService : Service() {
         }
     }
 
+    /** Listens with Groq Whisper (better Hindi). Falls back to the old on-phone listener if that fails. */
     private fun listenForQuestion() {
+        if (destroyed) return
+        if (repo.settings.apiKey.isBlank()) {
+            listenForQuestionLocal()
+            return
+        }
+        logLine("Whisper se sun rahi")
+        scope.launch {
+            var heard: String? = null
+            try {
+                heard = whisperHear()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logLine("Whisper fail: " + (e.message ?: "error").take(80))
+            }
+            if (destroyed) return@launch
+            withContext(Dispatchers.Main) {
+                val h = heard
+                when {
+                    h == null -> listenForQuestionLocal()
+                    h.isBlank() -> {
+                        status("Kuch sunai nahi diya")
+                        resumeWake()
+                    }
+                    else -> {
+                        logLine("Whisper suna: $h")
+                        answer(h)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun whisperHear(): String = withContext(Dispatchers.IO) {
+        val pcm = recordQuestion() ?: return@withContext ""
+        com.yasmin.ai.data.LlmClient()
+            .transcribe(repo.settings.baseUrl, repo.settings.apiKey, wavOf(pcm))
+            .trim()
+    }
+
+    /** Records until about 1.5 s of silence after speech. Returns null if nobody spoke. */
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun recordQuestion(): ByteArray? {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            throw IllegalStateException("Mic permission nahi")
+        }
+        val rate = 16000
+        val chunk = rate / 50 // 20 ms
+        val minBuf = android.media.AudioRecord.getMinBufferSize(
+            rate, android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT
+        )
+        if (minBuf <= 0) throw IllegalStateException("Mic buffer nahi mila")
+        val rec = android.media.AudioRecord(
+            android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION, rate,
+            android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT,
+            maxOf(minBuf, chunk * 16)
+        )
+        if (rec.state != android.media.AudioRecord.STATE_INITIALIZED) {
+            rec.release()
+            throw IllegalStateException("Mic start nahi hua")
+        }
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ShortArray(chunk)
+        var noise = 0.0
+        var calib = 0
+        var spoke = false
+        var silent = 0
+        val t0 = System.currentTimeMillis()
+        try {
+            rec.startRecording()
+            while (!destroyed) {
+                val n = rec.read(buf, 0, chunk)
+                if (n <= 0) break
+                var sum = 0.0
+                for (i in 0 until n) sum += buf[i].toDouble() * buf[i]
+                val rms = Math.sqrt(sum / n)
+                if (calib < 15) {
+                    noise += rms / 15
+                    calib++
+                } else {
+                    val th = (noise * 3.0).coerceIn(500.0, 3000.0)
+                    if (rms > th) {
+                        spoke = true
+                        silent = 0
+                    } else if (spoke) {
+                        silent++
+                    }
+                }
+                for (i in 0 until n) {
+                    out.write(buf[i].toInt() and 0xff)
+                    out.write((buf[i].toInt() shr 8) and 0xff)
+                }
+                val el = System.currentTimeMillis() - t0
+                if (spoke && silent >= 75) break
+                if (!spoke && el > 7000) break
+                if (el > 25000) break
+            }
+        } finally {
+            try { rec.stop() } catch (e: Exception) { }
+            rec.release()
+        }
+        return if (spoke) out.toByteArray() else null
+    }
+
+    private fun wavOf(pcm: ByteArray): ByteArray {
+        val rate = 16000
+        val bb = java.nio.ByteBuffer.allocate(44 + pcm.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        bb.put("RIFF".toByteArray()); bb.putInt(36 + pcm.size); bb.put("WAVE".toByteArray())
+        bb.put("fmt ".toByteArray()); bb.putInt(16); bb.putShort(1); bb.putShort(1)
+        bb.putInt(rate); bb.putInt(rate * 2); bb.putShort(2); bb.putShort(16)
+        bb.put("data".toByteArray()); bb.putInt(pcm.size); bb.put(pcm)
+        return bb.array()
+    }
+
+    private fun listenForQuestionLocal() {
         logLine(if (hiRecognizer != null) "Hindi mic se sun rahi" else "Hindi model nahi, Google speech try")
         if (hiRecognizer != null && !destroyed) {
             listenHindi()

@@ -54,6 +54,41 @@ class LlmClient {
         }
     }
 
+    /** Speech-to-text with Groq Whisper. wav = 16 kHz mono PCM WAV. Call from a background thread. */
+    fun transcribe(baseUrl: String, apiKey: String, wav: ByteArray, language: String = "hi"): String {
+        val boundary = "----yasmin" + System.currentTimeMillis()
+        val url = URL(baseUrl.trimEnd('/') + "/audio/transcriptions")
+        val conn = url.openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 20_000
+            conn.readTimeout = 60_000
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+            conn.setRequestProperty("User-Agent", "YasminAI-Android/0.1")
+            conn.outputStream.use { os ->
+                fun field(name: String, value: String) {
+                    os.write(("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n$value\r\n").toByteArray(Charsets.UTF_8))
+                }
+                field("model", "whisper-large-v3-turbo")
+                field("language", language)
+                field("response_format", "json")
+                field("temperature", "0")
+                os.write(("--$boundary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"speech.wav\"\r\nContent-Type: audio/wav\r\n\r\n").toByteArray(Charsets.UTF_8))
+                os.write(wav)
+                os.write("\r\n--$boundary--\r\n".toByteArray(Charsets.UTF_8))
+            }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw LlmException(friendlyError(code, text))
+            return JSONObject(text).optString("text", "").trim()
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     private fun friendlyError(code: Int, body: String): String {
         val detail = try {
             JSONObject(body).getJSONObject("error").optString("message", "")
